@@ -413,8 +413,9 @@ func (r *Wso2IsReconciler) deploymentForWso2Is(m wso2v1beta1.Wso2Is) *appsv1.Dep
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      m.Name,
-			Namespace: m.Namespace,
+			Name:        m.Name,
+			Namespace:   m.Namespace,
+			Annotations: m.Annotations,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
@@ -490,7 +491,7 @@ func (r *Wso2IsReconciler) deploymentForWso2Is(m wso2v1beta1.Wso2Is) *appsv1.Dep
 						VolumeMounts: []corev1.VolumeMount{
 							{
 								Name:      pvcName,
-								MountPath: "/home/wso2carbon/wso2is-5.11.0/repository/deployment/server/userstores",
+								MountPath: `/home/wso2carbon/wso2is-{m.Spec.Version}/repository/deployment/server/userstores`,
 							},
 							{
 								Name:        configMapName,
@@ -499,7 +500,7 @@ func (r *Wso2IsReconciler) deploymentForWso2Is(m wso2v1beta1.Wso2Is) *appsv1.Dep
 							},
 							{
 								Name:      secretName,
-								MountPath: "/home/wso2carbon/wso2is-5.11.0/repository/resources/security/controller-keystores",
+								MountPath: `/home/wso2carbon/wso2is-{m.Spec.Version}/repository/resources/security/controller-keystores`,
 								ReadOnly:  true,
 							},
 						},
@@ -597,3 +598,115 @@ func remountVolume(r *Wso2IsReconciler, instance wso2v1beta1.Wso2Is, log logr.Lo
 	// Return reconcile result
 	return ctrl.Result{}, nil
 }
+
+// func restartDeployments(r *Wso2IsReconciler, instance wso2v1beta1.Wso2Is, ctx context.Context, log logr.Logger, rolloutType string) error {
+// 	deployments := &appsv1.DeploymentList{}
+// 	listOptions := []client.ListOption{
+// 		client.InNamespace(instance.Namespace),
+// 	}
+
+// 	if err := r.List(ctx, deployments, listOptions...); err != nil {
+// 		return fmt.Errorf("failed to list deployments in namespace %s: %w", instance.Namespace, err)
+// 	}
+// 	size := len(deployments.Items)
+// 	log.Info("Number of deployments: " + fmt.Sprint(size))
+
+// 	for _, deployment := range deployments.Items {
+// 		switch rolloutType {
+// 		case "recreate":
+// 			// Perform recreate rollout
+// 			neededReplicas := deployment.Spec.Replicas
+// 			replicas := int32(0)
+// 			deployment.Spec.Replicas = &replicas
+// 			if err := r.Update(ctx, &deployment); err != nil {
+// 				return fmt.Errorf("failed to scale down deployment: %w", err)
+// 			}
+
+// 			// Wait for the deployment to scale down
+// 			err := waitForDeploymentScaledDown(r, &deployment, ctx, log)
+// 			if err != nil {
+// 				return fmt.Errorf("failed to wait for deployment scale down: %w", err)
+// 			}
+
+// 			replicas = *neededReplicas
+// 			deployment.Spec.Replicas = &replicas
+// 			if err := r.Update(ctx, &deployment); err != nil {
+// 				return fmt.Errorf("failed to scale up deployment: %w", err)
+// 			}
+
+// 			// Wait for the deployment to scale up
+// 			err = waitForDeploymentScaledUp(r, &deployment, ctx, log)
+// 			if err != nil {
+// 				return fmt.Errorf("failed to wait for deployment scale up: %w", err)
+// 			}
+
+// 		case "rolling":
+// 			// Perform rolling restart
+// 			// ...
+
+// 		default:
+// 			return fmt.Errorf("unsupported rollout type: %s", rolloutType)
+// 		}
+
+// 		log.Info("Restarted deployment: " + deployment.Name)
+// 	}
+
+// 	return nil
+// }
+
+// func waitForDeploymentScaledDown(r *Wso2IsReconciler, deployment *appsv1.Deployment, ctx context.Context, log logr.Logger) error {
+// 	for {
+// 		err := r.Get(ctx, client.ObjectKey{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to get deployment: %w", err)
+// 		}
+
+// 		if deployment.Status.Replicas == 0 && deployment.Status.AvailableReplicas == 0 {
+// 			break
+// 		}
+
+// 		log.Info("Waiting for deployment to scale down...")
+// 		time.Sleep(5 * time.Second)
+// 	}
+
+// 	return nil
+// }
+
+// func waitForDeploymentScaledUp(r *Wso2IsReconciler, deployment *appsv1.Deployment, ctx context.Context, log logr.Logger) error {
+// 	for {
+// 		err := r.Get(ctx, client.ObjectKey{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to get deployment: %w", err)
+// 		}
+
+// 		desiredReplicas := *deployment.Spec.Replicas
+// 		currentReplicas := deployment.Status.Replicas
+// 		availableReplicas := deployment.Status.AvailableReplicas
+
+// 		if currentReplicas != 0 && availableReplicas != 0 && availableReplicas == desiredReplicas {
+// 			break
+// 		}
+
+// 		log.Info("Waiting for deployment to scale up...")
+// 		time.Sleep(5 * time.Second)
+// 	}
+
+// 	return nil
+// }
+
+// func deleteAllPods(ctx context.Context, namespace string, c client.Client) error {
+// 	podList := &corev1.PodList{}
+// 	err := c.List(ctx, podList, client.InNamespace(namespace))
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	for _, pod := range podList.Items {
+// 		err := c.Delete(ctx, &pod)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	return nil
+// }

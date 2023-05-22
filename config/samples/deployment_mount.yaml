@@ -2,6 +2,8 @@ apiVersion: iam.wso2.com/v1beta1
 kind: Wso2Is
 metadata:
   name: identity-server-test
+  annotations:
+   "configmap.reloader.stakater.com/reload": "identity-server-conf"
 spec:
   replicas: 1
   configurations:
